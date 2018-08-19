@@ -1,42 +1,31 @@
-import { compose } from 'redux'
+import { compose } from "redux";
 
-let allDynamicMiddlewares = []
+const allMiddleware = new Set();
 
-const dynamicMiddlewares = ({ getState, dispatch }) => next => (action) => {
-  const middlewareAPI = {
-    getState,
-    dispatch: act => dispatch(act),
-  }
+export const createMiddlewareRegistry = (objArg, ...rest) => ({
+  getState,
+  dispatch
+}) => next => action => {
+  const middlewareChain = Array.from(allMiddleware).map(middleware =>
+    middleware(
+      {
+        ...objArg,
+        getState,
+        dispatch
+      },
+      ...rest
+    )
+  );
 
-  const chain = allDynamicMiddlewares.map(middleware => middleware(middlewareAPI))
+  return compose(...middlewareChain)(next)(action);
+};
 
-  return compose(...chain)(next)(action)
-}
+export const register = (...middleware) =>
+  middleware.forEach(m => allMiddleware.add(m));
 
-const addMiddleware = (...middlewares) => {
-  allDynamicMiddlewares = [...allDynamicMiddlewares, ...middlewares]
-}
+export const deregister = (...middleware) =>
+  middleware.forEach(m => allMiddleware.delete(m));
 
-const removeMiddleware = (middleware) => {
-  const index = allDynamicMiddlewares.findIndex(d => d === middleware)
+export const reset = () => allMiddleware.clear();
 
-  if (index === -1) {
-    // eslint-disable-next-line no-console
-    console.error('Middleware does not exist!', middleware)
-
-    return
-  }
-
-  allDynamicMiddlewares = allDynamicMiddlewares.filter((_, mdwIndex) => mdwIndex !== index)
-}
-
-const resetMiddlewares = () => {
-  allDynamicMiddlewares = []
-}
-
-export default dynamicMiddlewares
-export {
-  addMiddleware,
-  removeMiddleware,
-  resetMiddlewares,
-}
+export default createMiddlewareRegistry();
